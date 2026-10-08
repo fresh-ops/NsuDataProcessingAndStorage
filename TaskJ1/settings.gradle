@@ -1,2 +1,3 @@
 rootProject.name = 'TaskJ1'
 include 'server'
+include 'client'
