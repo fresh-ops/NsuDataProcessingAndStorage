@@ -2,7 +2,6 @@ package ru.nsu.g.solovev5.m.taskj1;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -43,6 +42,20 @@ public class CertificateClient implements Callable<Integer> {
     )
     private String url;
 
+    @CommandLine.Option(
+        names = {"--disconnect"},
+        description = "disconnect after sending request"
+    )
+    private boolean isDisconnecting;
+
+    @CommandLine.Option(
+        names = {"--delay"},
+        paramLabel = "READ_DELAY_MS",
+        description = "read delay in ms",
+        defaultValue = "0"
+    )
+    private long readDelayMs;
+
     static void main(String[] args) {
         var exitCode = new CommandLine(new CertificateClient()).execute(args);
         System.exit(exitCode);
@@ -53,6 +66,12 @@ public class CertificateClient implements Callable<Integer> {
         System.out.println("Requesting a certificate");
         System.out.println("For " + subjectName);
         System.out.println("From " + url + ":" + port);
+        if (readDelayMs > 0) {
+            System.out.println("Reading delay: " + readDelayMs + "  ms");
+        }
+        if (isDisconnecting) {
+            System.out.println("Disconnecting: true");
+        }
 
         try (var socketChannel = SocketChannel.open()) {
             socketChannel.connect(new InetSocketAddress(url, port));
@@ -60,6 +79,11 @@ public class CertificateClient implements Callable<Integer> {
             System.out.println("Sending certificate request");
             sendRequest(socketChannel);
 
+            if (isDisconnecting) {
+                return 0;
+            }
+
+            Thread.sleep(readDelayMs);
             System.out.println("Reading response");
             var response = readResponse(socketChannel);
 
