@@ -1,13 +1,15 @@
 package ru.nsu.g.solovev5.m.taskj1.certificates;
 
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
-import java.util.Set;
-import java.util.UUID;
+import java.security.cert.CertificateException;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
@@ -27,7 +29,7 @@ public class GenerationManager extends AbstractService {
 
     private final CertificateGenerator certificateGenerator;
     private final ThreadLocal<KeyPairGenerator> keyPairGenerator;
-    private final ConcurrentHashMap<String, Set<UUID>> pendingRequests = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, CompletableFuture<byte[]>> cached = new ConcurrentHashMap<>();
 
     /**
      * Creates a new GenerationManager.
@@ -78,50 +80,43 @@ public class GenerationManager extends AbstractService {
     }
 
     private void processRequest(Request request) {
-        Set<UUID> newSet = ConcurrentHashMap.newKeySet();
+        var future = cached.computeIfAbsent(
+            request.message(),
+            key -> CompletableFuture.supplyAsync(() -> generateResponse(key), executor)
+        );
 
-        pendingRequests.compute(request.message(), (_, connections) -> {
-            if (connections == null) {
-                newSet.add(request.connectionId());
-                return newSet;
-            }
-            connections.add(request.connectionId());
-            return connections;
-        });
-
-        if (newSet.isEmpty()) return;
-
-        executor.submit(() -> {
+        future.thenAcceptAsync(response -> {
             try {
-                var keys = keyPairGenerator.get().generateKeyPair();
-                var certificate = certificateGenerator.generate(
-                    new X500Name(request.message()),
-                    keys.getPublic()
-                );
-
-                var buffer = new ByteArrayOutputStream();
-                buffer.write(certificate.getEncoded().length);
-                buffer.write(certificate.getEncoded());
-                buffer.write(keys.getPrivate().getEncoded().length);
-                buffer.write(keys.getPrivate().getEncoded());
-                buffer.write(keys.getPublic().getEncoded().length);
-                buffer.write(keys.getPublic().getEncoded());
-                var bytes = buffer.toByteArray();
-                buffer.reset();
-
-                sendResponse(request.message(), bytes);
-            } catch (Exception e) {
-                System.err.println("Failed to generate certificate: " + e.getMessage());
+                if (response != null) {
+                    responses.put(new Response(request.connectionId(), response));
+                }
+            } catch (InterruptedException _) {
             }
-        });
+        }, executor);
     }
 
-    private void sendResponse(String request, byte[] response) {
-        var connections = pendingRequests.remove(request);
-        if (connections == null) return;
+    private byte[] generateResponse(String request) {
+        try {
+            var keyPair = keyPairGenerator.get().generateKeyPair();
+            var certificate = certificateGenerator.generate(
+                new X500Name(request),
+                keyPair.getPublic()
+            );
 
-        for (var connection : connections) {
-            responses.add(new Response(connection, response));
+            var buffer = new ByteArrayOutputStream();
+            try (var dataOut = new DataOutputStream(buffer)) {
+                dataOut.writeInt(certificate.getEncoded().length);
+                dataOut.write(certificate.getEncoded());
+                dataOut.writeInt(keyPair.getPrivate().getEncoded().length);
+                dataOut.write(keyPair.getPrivate().getEncoded());
+                dataOut.writeInt(keyPair.getPublic().getEncoded().length);
+                dataOut.write(keyPair.getPublic().getEncoded());
+            }
+            return buffer.toByteArray();
+        } catch (CertificateException | IOException e) {
+            System.err.println("Failed to generate certificate for " + request);
+            cached.remove(request);
+            return null;
         }
     }
 }

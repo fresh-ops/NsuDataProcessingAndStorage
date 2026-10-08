@@ -83,6 +83,8 @@ public class CertificateServer implements Callable<Integer> {
             generationManager.start();
             System.out.println("Listening at port " + port + "...");
             Thread.sleep(2 * 60 * 1000);
+            generationManager.stop();
+            connectionManager.stop();
         }
 
         return 0;
