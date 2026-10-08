@@ -86,12 +86,15 @@ public class ConnectionManager extends AbstractService {
     @Override
     protected void loop() {
         while (!Thread.currentThread().isInterrupted()) {
-            var response = responses.poll();
-            if (response == null) continue;
+            try {
+                var response = responses.take();
             var connection = connections.get(response.connectionId());
             if (connection == null) continue;
 
             responseSender.addConnection(connection, response.message());
+            } catch (InterruptedException e) {
+                break;
+            }
         }
     }
 
@@ -106,7 +109,11 @@ public class ConnectionManager extends AbstractService {
         System.out.println("Message from " + connectionId + ": " + message);
         var connection = connections.get(connectionId);
         if (connection != null) {
-            requests.add(new Request(connection.id(), message));
+            try {
+                requests.put(new Request(connection.id(), message));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
