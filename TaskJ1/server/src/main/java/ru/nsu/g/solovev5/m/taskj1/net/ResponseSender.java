@@ -102,11 +102,17 @@ public class ResponseSender extends AbstractService {
         }
     }
 
-    private void handleWrite(SelectionKey key) throws IOException {
+    private void handleWrite(SelectionKey key) {
         var channel = (SocketChannel) key.channel();
         var state = (WritingState) key.attachment();
 
-        channel.write(state.buffer());
+        try {
+            channel.write(state.buffer());
+        } catch (IOException e) {
+            System.err.println("Error writing channel: " + e.getMessage());
+            key.cancel();
+            onResponseSent.accept(state.connectionId());
+        }
 
         if (!state.buffer().hasRemaining()) {
             handleResponseSent(state);

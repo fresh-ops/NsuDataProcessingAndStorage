@@ -104,16 +104,22 @@ public class MessageReader extends AbstractService {
         }
     }
 
-    private void handleRead(SelectionKey key) throws IOException {
+    private void handleRead(SelectionKey key) {
         var channel = (SocketChannel) key.channel();
-        var bytesRead = channel.read(buffer);
+        var state = (ReadingState) key.attachment();
+        try {
+            var bytesRead = channel.read(buffer);
 
-        if (bytesRead <= 0) {
-            if (bytesRead == -1) handleConnectionClosed(key);
-            return;
+            if (bytesRead <= 0) {
+                if (bytesRead == -1) handleConnectionClosed(key);
+                return;
+            }
+        } catch (IOException e) {
+            System.err.println("Error reading channel: " + e.getMessage());
+            key.cancel();
+            onConnectionClosed.accept(state.connectionId());
         }
 
-        var state = (ReadingState) key.attachment();
         buffer.flip();
         state.extendMessage(buffer);
         buffer.clear();
