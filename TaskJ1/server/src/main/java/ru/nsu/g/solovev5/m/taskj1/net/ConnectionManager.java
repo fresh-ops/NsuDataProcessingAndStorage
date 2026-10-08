@@ -6,6 +6,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A connection orchestrator.
@@ -14,7 +15,7 @@ public class ConnectionManager {
     private final ConnectionAcceptor connectionAcceptor;
     private final MessageReader messageReader;
     private final ResponseSender responseSender;
-    private final HashMap<UUID, Connection> connections;
+    private final ConcurrentHashMap<UUID, Connection> connections;
 
     /**
      * Creates a new ConnectionManager.
@@ -25,7 +26,7 @@ public class ConnectionManager {
         connectionAcceptor = new ConnectionAcceptor(serverChannel, this::handleAccept);
         messageReader = new MessageReader(this::handleMessageReceived, this::handleConnectionClosed);
         responseSender = new ResponseSender(this::handleConnectionClosed);
-        connections = new HashMap<>();
+        connections = new ConcurrentHashMap<>();
     }
 
     /**
