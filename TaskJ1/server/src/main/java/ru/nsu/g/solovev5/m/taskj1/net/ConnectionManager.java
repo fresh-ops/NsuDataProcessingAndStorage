@@ -4,14 +4,21 @@ import java.io.IOException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import ru.nsu.g.solovev5.m.taskj1.shared.AbstractService;
+import ru.nsu.g.solovev5.m.taskj1.shared.Request;
+import ru.nsu.g.solovev5.m.taskj1.shared.Response;
 
 /**
  * A connection orchestrator.
  */
-public class ConnectionManager {
+public class ConnectionManager extends AbstractService {
+    private final BlockingQueue<Request> requests;
+    private final BlockingQueue<Response> responses;
+
     private final ConnectionAcceptor connectionAcceptor;
     private final MessageReader messageReader;
     private final ResponseSender responseSender;
@@ -21,8 +28,17 @@ public class ConnectionManager {
      * Creates a new ConnectionManager.
      *
      * @param serverChannel the managing socket channel
+     * @param requests      the queue to put new requests
+     * @param responses     the queue to poll responses
      */
-    public ConnectionManager(ServerSocketChannel serverChannel) {
+    public ConnectionManager(
+        ServerSocketChannel serverChannel,
+        BlockingQueue<Request> requests,
+        BlockingQueue<Response> responses
+    ) {
+        this.requests = requests;
+        this.responses = responses;
+
         connectionAcceptor = new ConnectionAcceptor(serverChannel, this::handleAccept);
         messageReader = new MessageReader(this::handleMessageReceived, this::handleConnectionClosed);
         responseSender = new ResponseSender(this::handleConnectionClosed);
@@ -32,12 +48,14 @@ public class ConnectionManager {
     /**
      * Starts this manager.
      */
+    @Override
     public synchronized void start() {
         var services = new AbstractService[]{connectionAcceptor, messageReader, responseSender};
 
         for (var service : services) {
             service.start();
         }
+        super.start();
     }
 
     /**
@@ -45,6 +63,7 @@ public class ConnectionManager {
      *
      * @throws InterruptedException if any thread has interrupted the current thread
      */
+    @Override
     public synchronized void stop() throws InterruptedException {
         var isInterrupted = false;
         var services = new AbstractService[]{connectionAcceptor, messageReader, responseSender};
@@ -63,6 +82,19 @@ public class ConnectionManager {
         if (isInterrupted) {
             throw new InterruptedException();
         }
+        super.stop();
+    }
+
+    @Override
+    protected void loop() {
+        while (!Thread.currentThread().isInterrupted()) {
+            var response = responses.poll();
+            if (response == null) continue;
+            var connection = connections.get(response.connectionId());
+            if (connection == null) continue;
+
+            responseSender.addConnection(connection, response.message());
+        }
     }
 
     private void handleAccept(SocketChannel socketChannel) {
@@ -76,7 +108,7 @@ public class ConnectionManager {
         System.out.println("Message from " + connectionId + ": " + message);
         var connection = connections.get(connectionId);
         if (connection != null) {
-            responseSender.addConnection(connection, "Ok\n".getBytes(StandardCharsets.US_ASCII));
+            requests.add(new Request(connection.id(), message));
         }
     }
 
