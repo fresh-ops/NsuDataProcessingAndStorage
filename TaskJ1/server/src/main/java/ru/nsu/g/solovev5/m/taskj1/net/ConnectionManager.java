@@ -75,12 +75,17 @@ public class ConnectionManager {
     private void handleMessageReceived(UUID connectionId, String message) {
         System.out.println("Message from " + connectionId + ": " + message);
         var connection = connections.get(connectionId);
-        responseSender.addConnection(connection, "Ok\n".getBytes(StandardCharsets.US_ASCII));
+        if (connection != null) {
+            responseSender.addConnection(connection, "Ok\n".getBytes(StandardCharsets.US_ASCII));
+        }
     }
 
     private void handleConnectionClosed(UUID connectionId) {
         System.out.println("Connection closed: " + connectionId);
         var connection = connections.remove(connectionId);
+        if (connection == null) {
+            return;
+        }
 
         try {
             connection.channel().close();
