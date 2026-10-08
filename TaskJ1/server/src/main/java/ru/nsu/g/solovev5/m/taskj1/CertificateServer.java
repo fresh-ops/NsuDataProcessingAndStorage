@@ -1,12 +1,19 @@
 package ru.nsu.g.solovev5.m.taskj1;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import org.bouncycastle.asn1.x500.X500Name;
 import picocli.CommandLine;
+import ru.nsu.g.solovev5.m.taskj1.certificates.GenerationManager;
+import ru.nsu.g.solovev5.m.taskj1.certificates.IdGenerator;
+import ru.nsu.g.solovev5.m.taskj1.certificates.PemKeyReader;
 import ru.nsu.g.solovev5.m.taskj1.net.ConnectionManager;
+import ru.nsu.g.solovev5.m.taskj1.shared.Request;
+import ru.nsu.g.solovev5.m.taskj1.shared.Response;
 
 @CommandLine.Command(
     name = "server",
@@ -14,9 +21,6 @@ import ru.nsu.g.solovev5.m.taskj1.net.ConnectionManager;
     description = "Starts a new certificate server"
 )
 public class CertificateServer implements Callable<Integer> {
-    private static final String KEY_ALGORITHM = "RSA";
-    private static final int KEY_SIZE = 8192;
-
     @CommandLine.Parameters(
         index = "0",
         paramLabel = "ISSUER_NAME"
@@ -51,22 +55,34 @@ public class CertificateServer implements Callable<Integer> {
     }
 
     @Override
-    public Integer call() throws IOException {
+    public Integer call() throws Exception {
         System.out.println("Starting a new certificate server...");
         System.out.println("Issuer name: " + issuerName);
         System.out.println("Signing key: " + signingKeyPath);
         System.out.println("Number of threads: " + threadCount);
 
-        try (var serverChannel = ServerSocketChannel.open()) {
+        var requests = new LinkedBlockingQueue<Request>();
+        var responses = new LinkedBlockingQueue<Response>();
+
+        try (
+            var executor = Executors.newFixedThreadPool(threadCount);
+            var serverChannel = ServerSocketChannel.open()
+        ) {
             serverChannel.bind(new InetSocketAddress(port));
 
-            var connectionManager = new ConnectionManager(serverChannel);
+            var connectionManager = new ConnectionManager(serverChannel, requests, responses);
+            var generationManager = new GenerationManager(
+                new X500Name(issuerName),
+                PemKeyReader.readPrivateKey(signingKeyPath),
+                new IdGenerator(),
+                requests,
+                responses,
+                executor
+            );
             connectionManager.start();
+            generationManager.start();
             System.out.println("Listening at port " + port + "...");
-            Thread.sleep(30 * 1000);
-            connectionManager.stop();
-        } catch (InterruptedException e) {
-            System.err.println("Interrupted");
+            Thread.sleep(2 * 60 * 1000);
         }
 
         return 0;

@@ -1,4 +1,4 @@
-package ru.nsu.g.solovev5.m.taskj1;
+package ru.nsu.g.solovev5.m.taskj1.certificates;
 
 import java.io.IOException;
 import java.nio.file.Files;
