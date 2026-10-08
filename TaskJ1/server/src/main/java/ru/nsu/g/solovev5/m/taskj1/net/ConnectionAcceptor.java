@@ -5,6 +5,7 @@ import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.function.Consumer;
+import ru.nsu.g.solovev5.m.taskj1.shared.AbstractService;
 
 /**
  * A class for accepting connection to the server socket.

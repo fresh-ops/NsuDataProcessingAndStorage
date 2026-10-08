@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Consumer;
+import ru.nsu.g.solovev5.m.taskj1.shared.AbstractService;
 
 /**
  * A multi connection response sender.

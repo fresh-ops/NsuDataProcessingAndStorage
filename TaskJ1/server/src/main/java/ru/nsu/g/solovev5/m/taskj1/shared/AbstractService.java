@@ -1,4 +1,4 @@
-package ru.nsu.g.solovev5.m.taskj1.net;
+package ru.nsu.g.solovev5.m.taskj1.shared;
 
 /**
  * A service running in a separate thread.
