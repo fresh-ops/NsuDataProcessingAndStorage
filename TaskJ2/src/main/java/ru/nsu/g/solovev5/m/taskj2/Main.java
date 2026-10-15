@@ -2,7 +2,6 @@ package ru.nsu.g.solovev5.m.taskj2;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.Scanner;
 
 public class Main {
@@ -33,9 +32,11 @@ public class Main {
         long sleepDuration
     ) throws InterruptedException {
         var lines = new MyLinkedList<String>();
+        var sorters = new MyLinkedListSorter[threadsNumber];
         var threads = new Thread[threadsNumber];
         for (var i = 0; i < threadsNumber; i++) {
-            threads[i] = new Thread(new MyLinkedListSorter(lines, sleepDuration));
+            sorters[i] = new MyLinkedListSorter(lines, sleepDuration);
+            threads[i] = new Thread(sorters[i]);
             threads[i].start();
         }
 
@@ -55,9 +56,12 @@ public class Main {
             System.out.flush();
         }
 
-        for (var thread : threads) {
-            thread.interrupt();
+        var totalSteps = 0;
+        for (var i = 0; i < threadsNumber; i++) {
+            threads[i].interrupt();
+            totalSteps += sorters[i].getSteps();
         }
+        System.out.println("Total steps: " + totalSteps);
         try {
             for (var thread : threads) {
                 thread.join();
@@ -75,8 +79,10 @@ public class Main {
     ) throws InterruptedException {
         var lines = Collections.synchronizedList(new ArrayList<String>());
         var threads = new Thread[threadsNumber];
+        var sorters = new SynchronizedListSorter[threadsNumber];
         for (var i = 0; i < threadsNumber; i++) {
-            threads[i] = new Thread(new SynchronizedListSorter(lines, sleepDuration));
+            sorters[i] = new SynchronizedListSorter(lines, sleepDuration);
+            threads[i] = new Thread(sorters[i]);
             threads[i].start();
         }
 
@@ -96,9 +102,12 @@ public class Main {
             System.out.flush();
         }
 
-        for (var thread : threads) {
-            thread.interrupt();
+        var totalSteps = 0;
+        for (var i = 0; i < threadsNumber; i++) {
+            threads[i].interrupt();
+            totalSteps += sorters[i].getSteps();
         }
+        System.out.println("Total steps: " + totalSteps);
         try {
             for (var thread : threads) {
                 thread.join();
