@@ -5,12 +5,19 @@ import java.util.Scanner;
 public class Main {
     static void main() {
         var scanner = new Scanner(System.in);
+        var lines = new MyLinkedList<String>();
 
         System.out.print(">>> ");
         System.out.flush();
-        while (scanner.hasNext()) {
+        while (scanner.hasNextLine()) {
             var input = scanner.nextLine();
-            System.out.println(input);
+            if (input.isEmpty()) {
+                for (var line : lines) {
+                    System.out.println(line);
+                }
+            } else {
+                lines.pushFront(input);
+            }
 
             System.out.print(">>> ");
             System.out.flush();
