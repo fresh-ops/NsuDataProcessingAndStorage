@@ -1,5 +1,4 @@
-(ns ru.nsu.g.solovev5.m.task-c1)
-(require '[clojure.pprint :refer [pprint]])
+(ns main)
 
 (defn str-product
   [as bs]
@@ -19,4 +18,3 @@
             (remove eq-first-two? (str-product lst acc)))
           (repeat n alpha)))
 
-(pprint (words 4 '("a" "b" "c")))
