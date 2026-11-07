@@ -12,7 +12,7 @@
 
 (deftest put-multiple-of-prime
   (let [table {8 2, 9 3, 10 5, 14 7}]
-    (is (some #(11) (vals (promote-prime 11 table))))))
+    (is (some #(= % 11) (vals (promote-prime 11 table))))))
 
 (deftest gen-first-ten-primes
   (is (= [2 3 5 7 11 13 17 19 23 29]
