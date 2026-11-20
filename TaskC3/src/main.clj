@@ -14,3 +14,13 @@
                         (doall)
                         (mapcat deref))))))  
 
+(defn measure-filter []
+  (time (doall 
+          (take 100 
+                (filter heavy-odd? (iterate inc 1))))))
+
+(defn measure-p-filter []
+  (time (doall 
+          (take 100 
+                (p-filter heavy-odd? (iterate inc 1))))))
+
